@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Entrenamiento de Divisiones</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #f4f4f9;
+            color: #333;
+            margin: 0;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 90%;
+            max-width: 600px;
+        }
+        h1 {
+            color: #007bff;
+            margin-bottom: 20px;
+        }
+        #operacion {
+            font-size: 2.5em;
+            margin: 25px 0;
+            min-height: 50px;
+        }
+        input[type="number"] {
+            padding: 10px;
+            font-size: 1.2em;
+            width: 80%;
+            max-width: 200px;
+            margin-bottom: 20px;
+            border: 2px solid #ccc;
+            border-radius: 6px;
+            text-align: center;
+        }
+        button {
+            padding: 12px 25px;
+            font-size: 1.1em;
+            color: white;
+            background-color: #28a745;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+            transition: background-color 0.3s;
+        }
+        button:hover:not(:disabled) {
+            background-color: #218838;
+        }
+        button:disabled {
+            background-color: #999;
+            cursor: not-allowed;
+        }
+        #timer, #errores, #aciertos {
+            font-size: 1.1em;
+            margin: 5px 10px;
+            font-weight: bold;
+        }
+        #mensaje {
+            min-height: 40px;
+            margin-top: 20px;
+            font-size: 1.1em;
+            font-weight: bold;
+        }
+        .error-count {
+            color: #dc3545;
+        }
+        .info-panel {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+            flex-wrap: wrap;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🎯 Entrenamiento de Divisiones</h1>
+
+    <div class="info-panel">
+        <div id="timer">Tiempo: 00:00.00</div>
+        <div id="aciertos">Aciertos: 0 / 30</div> 
+        <div id="errores" class="error-count">Errores: 0 / 3</div>
+    </div>
+
+    <div id="operacion">Presiona **Iniciar** para comenzar.</div>
+
+    <input type="number" id="respuesta" placeholder="Tu respuesta (ej: 5.00)" step="0.01" disabled>
+
+    <div>
+        <button id="btnStart" onclick="iniciarJuego()">Iniciar</button>
+        <button id="btnVerificar" onclick="verificarRespuesta()" disabled>Verificar</button>
+    </div>
+
+    <div id="mensaje"></div>
+</div>
+
+<script>
+    const MIN_DIVIDEND = 10;
+    const MAX_DIVIDEND = 99;
+    const MIN_DIVISOR = 10;
+    const MAX_DIVISOR = 99;
+    const MAX_ERRORES = 3;
+    const OBJETIVO_ACIERTOS = 30; // Objetivo de aciertos
+
+    let timerInterval;
+    let startTime;
+    let errores = 0;
+    let aciertos = 0; // Contador de aciertos
+    let operacionActual = { dividendo: 0, divisor: 0, resultado: 0, clave: '' };
+    let juegoActivo = false;
+    let operacionesResueltas = new Set(); 
+    let todasLasCombinacionesPosibles = (MAX_DIVIDEND - MIN_DIVIDEND + 1) * (MAX_DIVISOR - MIN_DIVISOR + 1);
+
+    document.getElementById('errores').textContent = `Errores: ${errores} / ${MAX_ERRORES}`;
+
+    /**
+     * Genera un número entero aleatorio dentro de un rango inclusivo.
+     */
+    function getRandomInt(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    /**
+     * Actualiza el panel de aciertos y errores.
+     */
+    function actualizarContadores() {
+        document.getElementById('errores').textContent = `Errores: ${errores} / ${MAX_ERRORES}`;
+        document.getElementById('aciertos').textContent = `Aciertos: ${aciertos} / ${OBJETIVO_ACIERTOS}`;
+        if (juegoActivo) {
+            document.getElementById('mensaje').innerHTML = `Operaciones únicas resueltas: ${operacionesResueltas.size} de ${todasLasCombinacionesPosibles}`;
+        }
+    }
+
+    /**
+     * Genera una nueva operación de división. Permite que el resultado sea menor a 1 (Dividendo < Divisor).
+     */
+    function generarOperacion() {
+        if (aciertos >= OBJETIVO_ACIERTOS) {
+             finalizarJuego(true);
+             return;
+        }
+
+        let dividendo, divisor;
+        let claveOperacion;
+
+        // Bucle para generar operaciones únicas
+        if (operacionesResueltas.size < todasLasCombinacionesPosibles) {
+            do {
+                dividendo = getRandomInt(MIN_DIVIDEND, MAX_DIVIDEND);
+                divisor = getRandomInt(MIN_DIVISOR, MAX_DIVISOR);
+                claveOperacion = `${dividendo}/${divisor}`;
+            } while (operacionesResueltas.has(claveOperacion));
+        } else {
+            // Si ya se resolvieron todas, puede seleccionar cualquiera al azar.
+            dividendo = getRandomInt(MIN_DIVIDEND, MAX_DIVIDEND);
+            divisor = getRandomInt(MIN_DIVISOR, MAX_DIVISOR);
+            claveOperacion = `${dividendo}/${divisor}`;
+        }
+
+        const resultadoFloat = dividendo / divisor;
+        // Redondea el resultado a dos decimales y se asegura de que tenga el formato X.XX
+        const resultadoFormateado = parseFloat(resultadoFloat.toFixed(2)).toFixed(2);
+        
+        operacionActual = {
+            dividendo: dividendo,
+            divisor: divisor,
+            resultado: parseFloat(resultadoFormateado), // Almacenamos el valor numérico truncado a 2 decimales
+            clave: claveOperacion
+        };
+
+        document.getElementById('operacion').innerHTML = 
+            `**${operacionActual.dividendo}** $\\div$ **${operacionActual.divisor}** = ?`;
+        document.getElementById('respuesta').value = '';
+        document.getElementById('respuesta').focus();
+        actualizarContadores();
+    }
+
+    /**
+     * Inicia el cronómetro.
+     */
+    function iniciarCronometro() {
+        startTime = Date.now();
+        timerInterval = setInterval(() => {
+            const elapsedTime = Date.now() - startTime;
+            const minutes = Math.floor(elapsedTime / 60000);
+            const seconds = Math.floor((elapsedTime % 60000) / 1000);
+            const milliseconds = Math.floor((elapsedTime % 1000) / 10);
+            const timeString = 
+                `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(milliseconds).padStart(2, '0')}`;
+            document.getElementById('timer').textContent = `Tiempo: ${timeString}`;
+        }, 10);
+    }
+
+    /**
+     * Detiene el cronómetro.
+     */
+    function detenerCronometro() {
+        clearInterval(timerInterval);
+    }
+
+    /**
+     * Inicia el juego.
+     */
+    function iniciarJuego() {
+        errores = 0;
+        aciertos = 0;
+        operacionesResueltas.clear(); // Limpiar operaciones resueltas al iniciar un nuevo juego
+        juegoActivo = true;
+        
+        document.getElementById('btnStart').disabled = true;
+        document.getElementById('btnVerificar').disabled = false;
+        document.getElementById('respuesta').disabled = false;
+
+        actualizarContadores();
+        generarOperacion();
+        iniciarCronometro();
+    }
+
+    /**
+     * Verifica la respuesta del usuario.
+     */
+    function verificarRespuesta() {
+        if (!juegoActivo) return;
+
+        const respuestaUsuario = document.getElementById('respuesta').value;
+
+        if (isNaN(parseFloat(respuestaUsuario))) {
+            document.getElementById('mensaje').textContent = "⚠️ Ingresa un número válido (ej: 5.00 o 0.78).";
+            return;
+        }
+
+        // 🎯 CORRECCIÓN APLICADA AQUÍ: Normalizar la comparación a dos decimales (formato de cadena).
+        
+        // Paso 1: Obtener el resultado correcto y normalizarlo a una cadena de dos decimales (ej: "0.78").
+        // La variable operacionActual.resultado ya contiene el valor numérico redondeado a 2 decimales.
+        const respuestaCorrectaNormalizada = operacionActual.resultado.toFixed(2); 
+
+        // Paso 2: Normalizar la respuesta del usuario a una cadena de dos decimales.
+        // Esto asegura que "0.780487..." se compare como "0.78" si el usuario ingresó "0.78".
+        const respuestaUsuarioNormalizada = parseFloat(respuestaUsuario).toFixed(2);
+        
+        // La comparación se hace con las cadenas de texto normalizadas.
+        if (respuestaUsuarioNormalizada === respuestaCorrectaNormalizada) {
+            // Caso: Respuesta Correcta
+            aciertos++;
+            operacionesResueltas.add(operacionActual.clave); // Se registra como resuelta
+            document.getElementById('mensaje').innerHTML = `✅ **Correcto!** Siguiente... <br> Operaciones únicas resueltas: ${operacionesResueltas.size} de ${todasLasCombinacionesPosibles}`;
+            
+            if (aciertos >= OBJETIVO_ACIERTOS) {
+                finalizarJuego(true);
+            } else {
+                generarOperacion();
+            }
+
+        } else {
+            // Caso: Respuesta Incorrecta
+            errores++;
+            document.getElementById('mensaje').innerHTML = `❌ **Incorrecto.** ¡Sigue intentando! <br> Operaciones únicas resueltas: ${operacionesResueltas.size} de ${todasLasCombinacionesPosibles}`;
+            
+            if (errores >= MAX_ERRORES) {
+                finalizarJuego(false);
+            } else {
+                generarOperacion(); 
+            }
+        }
+        actualizarContadores();
+    }
+
+    /**
+     * Finaliza el juego.
+     */
+    function finalizarJuego(exito) {
+        juegoActivo = false;
+        detenerCronometro();
+        document.getElementById('btnStart').disabled = false;
+        document.getElementById('btnVerificar').disabled = true;
+        document.getElementById('respuesta').disabled = true;
+        document.getElementById('operacion').textContent = "Juego Finalizado";
+
+        const tiempoFinal = document.getElementById('timer').textContent;
+
+        if (exito) {
+            document.getElementById('mensaje').innerHTML = `🎉 **¡Objetivo de ${OBJETIVO_ACIERTOS} aciertos alcanzado!** <br> Tiempo: ${tiempoFinal}. Errores: ${errores}.`;
+        } else {
+            document.getElementById('mensaje').innerHTML = `😭 **Juego terminado.** Superaste el límite de ${MAX_ERRORES} errores. <br> Aciertos totales: ${aciertos}.`;
+        }
+    }
+
+    // Permite presionar Enter para verificar la respuesta
+    document.getElementById('respuesta').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter' && juegoActivo) {
+            verificarRespuesta();
+        }
+    });
+
+</script>
+</body>
+</html>
